@@ -12,7 +12,7 @@ from starlette import status
 load_dotenv()
 SECRET_KEY = os.getenv('SECRET_KEY')
 ALGORITHM = os.getenv('ALGORITHM')
-bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+argon2_context = CryptContext(schemes=['argon2'], deprecated='auto')
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
 
 
@@ -20,12 +20,26 @@ def authenticate_user(username: str, password: str, db):
     user = db.query(User).filter(User.username == username).first()
     if not user:
         return False
-    if not bcrypt_context.verify(password, user.hashed_password):
+    if not argon2_context.verify(password, user.hashed_password):
         return False
     return user
 
 
-def create_access_token(username: str, user_id: int, expires_delta: timedelta):
+def create_tokens(username: str, user_id: int):
+    access_token = create_token(username, user_id, timedelta(minutes=30))
+    refresh_token = create_token(username, user_id, timedelta(days=7))
+    return access_token, refresh_token
+
+
+def decode_token(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError:
+        return None
+
+
+def create_token(username: str, user_id: int, expires_delta: timedelta):
     encode = {'sub': username, 'id': user_id}
     expires = datetime.utcnow() + expires_delta
     encode.update({'exp': expires})

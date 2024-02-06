@@ -9,9 +9,9 @@ from starlette import status
 from typing import Annotated
 from datetime import timedelta
 from sqlalchemy.orm import Session
-from services.auth import bcrypt_context
+from services.auth import argon2_context, create_tokens, decode_token
 
-from services.auth import authenticate_user, create_access_token
+from services.auth import authenticate_user
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 
@@ -19,17 +19,17 @@ oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
 db_dependency = Annotated[Session, Depends(get_db)]
 
 
-@router.post('/', status_code=status.HTTP_201_CREATED)
+@router.post('/registration', status_code=status.HTTP_201_CREATED)
 async def create_user(db: db_dependency, user_request: UserDTO):
     create_user_model = User(
         username=user_request.username,
-        hashed_password=bcrypt_context.hash(user_request.password)
+        hashed_password=argon2_context.hash(user_request.password)
     )
     db.add(create_user_model)
     db.commit()
 
 
-@router.post('/token', response_model=Token)
+@router.post('/login', response_model=Token)
 async def loging_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
                                   db: db_dependency):
     user = authenticate_user(form_data.username, form_data.password, db)
@@ -37,5 +37,19 @@ async def loging_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail='Could not validate user')
-    token = create_access_token(user.username, user.id, timedelta(minutes=30))
-    return {'access_token': token, 'token_type': 'bearer'}
+
+    access_token, refresh_token = create_tokens(user.username, user.id)
+    return {'access_token': access_token, 'refresh_token': refresh_token}
+
+
+@router.post('/refresh-token', response_model=Token)
+async def refresh_access_token(refresh_token: str, db: db_dependency):
+    user_id = decode_token(refresh_token)['id']
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail='User not found')
+
+    access_token, _ = create_tokens(user.username, user.id)
+    return {'access_token': access_token, 'refresh_token': refresh_token}
+
