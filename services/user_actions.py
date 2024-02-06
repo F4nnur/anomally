@@ -1,6 +1,6 @@
 import base64
 
-from models.user_actions import UserActions
+from methods.methods import check_anomaly
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import pandas as pd
@@ -8,23 +8,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import io
 
-def check_anomaly(df, metric, a=4, n=5):
-    df['q25'] = df[metric].shift(1).rolling(n).quantile(0.25)
-    df['q75'] = df[metric].shift(1).rolling(n).quantile(0.75)
-    df['igr'] = df['q75'] - df['q25']
-    df['up'] = df['q75'] - a*df['igr']
-    df['low'] = df['q25'] - a*df['igr']
 
-    df['up'] = df['up'].rolling(n, center=True, min_periods=1).mean()
-    df['low'] = df['up'].rolling(n, center=True, min_periods=1).mean()
-
-    if df[metric].iloc[-1] < df['low'].iloc[-1] or df[metric].iloc[-1] > df['up'].iloc[-1]:
-        is_alert = 1
-    else:
-        is_alert = 0
-    return is_alert, df
-
-def get_data(db: Session):
+async def get_data(db: Session):
     query = text('''SELECT
             date_trunc('hour', time) + interval '15 minutes' * floor(date_part('minute', time) / 15) AS ts,
             date(time) AS date,

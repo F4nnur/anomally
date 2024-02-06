@@ -1,6 +1,7 @@
 from sqlalchemy import Integer, String, TIMESTAMP, Column
 from database import Base
 
+
 class UserActions(Base):
     __tablename__ = 'user_actions'
     id = Column(Integer, primary_key=True, autoincrement=True)
