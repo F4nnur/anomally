@@ -7,7 +7,6 @@ from database import get_db
 from models.users import User
 from starlette import status
 from typing import Annotated
-from datetime import timedelta
 from sqlalchemy.orm import Session
 from services.auth import argon2_context, create_tokens, decode_token
 
@@ -15,7 +14,7 @@ from services.auth import authenticate_user
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 
-oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
+oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/login')
 db_dependency = Annotated[Session, Depends(get_db)]
 
 
@@ -27,6 +26,7 @@ async def create_user(db: db_dependency, user_request: UserDTO):
     )
     db.add(create_user_model)
     db.commit()
+    return {"username": user_request.username}
 
 
 @router.post('/login', response_model=Token)

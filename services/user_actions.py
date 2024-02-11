@@ -62,5 +62,5 @@ async def get_data(db: Session):
             img_str = plot_object.getvalue()
             img_base64 = base64.b64encode(img_str).decode('utf-8')
 
-            results.append((msg, img_base64))
+            results.append({'message': msg, "image": img_base64})
     return results

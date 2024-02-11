@@ -9,6 +9,7 @@ from starlette import status
 router = APIRouter()
 user_dependency = Annotated[dict, Depends(get_current_user)]
 
+
 @router.get('/get_data')
 async def get_users_data(user: user_dependency, db: Session = Depends(get_db)):
     if user is None:
